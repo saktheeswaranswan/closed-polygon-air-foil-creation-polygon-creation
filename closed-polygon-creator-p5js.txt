@@ -1,0 +1,98 @@
+let points = [];
+let selected = null;
+let exportButton;
+let bgInput;
+let bgImg = null;
+
+function setup() {
+  createCanvas(800, 400);
+
+  // File input for background image
+  bgInput = createFileInput(handleFile);
+  bgInput.position(10, 40);
+
+  // Initialize control points to form a simple NACA-like airfoil
+  let n = 50;
+  for (let i = 0; i < n; i++) {
+    let x = map(i, 0, n - 1, 0, 1);
+    let yt = 0.12 * (5 * (0.2969 * sqrt(x) - 0.1260 * x - 0.3516 * x*x + 0.2843 * x*x*x - 0.1015 * x*x*x*x));
+    points.push({ x: x * width, y: height/2 - yt * height }); // upper
+  }
+  for (let i = n - 1; i >= 0; i--) {
+    let x = map(i, 0, n - 1, 0, 1);
+    let yt = 0.12 * (5 * (0.2969 * sqrt(x) - 0.1260 * x - 0.3516 * x*x + 0.2843 * x*x*x - 0.1015 * x*x*x*x));
+    points.push({ x: x * width, y: height/2 + yt * height }); // lower
+  }
+
+  exportButton = createButton('Export CSV');
+  exportButton.position(10, 10);
+  exportButton.mousePressed(exportCSV);
+}
+
+function draw() {
+  // Draw background image or solid background
+  if (bgImg) {
+    image(bgImg, 0, 0, width, height);
+  } else {
+    background(240);
+  }
+
+  // draw airfoil shape
+  noFill();
+  stroke(0);
+  beginShape();
+  for (let p of points) vertex(p.x, p.y);
+  endShape(CLOSE);
+  
+  // draw control points
+  for (let p of points) {
+    fill(255);
+    stroke(0);
+    ellipse(p.x, p.y, 8);
+  }
+}
+
+function mousePressed() {
+  let dmin = Infinity;
+  for (let i = 0; i < points.length; i++) {
+    let p = points[i];
+    let d = dist(mouseX, mouseY, p.x, p.y);
+    if (d < dmin && d < 10) {
+      dmin = d;
+      selected = i;
+    }
+  }
+}
+
+function mouseDragged() {
+  if (selected !== null) {
+    points[selected].x = constrain(mouseX, 0, width);
+    points[selected].y = constrain(mouseY, 0, height);
+  }
+}
+
+function mouseReleased() {
+  selected = null;
+}
+
+function handleFile(file) {
+  if (file.type === 'image') {
+    bgImg = loadImage(file.data, img => {
+      // optionally resize or process
+    });
+  } else {
+    bgImg = null;
+  }
+}
+
+function exportCSV() {
+  let rows = [];
+  rows.push(['x', 'y']);
+  for (let p of points) {
+    let xnorm = (p.x / width).toFixed(4);
+    let ynorm = ((height/2 - p.y) / height).toFixed(4);
+    rows.push([xnorm, ynorm]);
+  }
+  let csv = rows.map(r => r.join(',')).join('\n');
+  saveStrings(csv.split('\n'), 'airfoil.csv');
+}
